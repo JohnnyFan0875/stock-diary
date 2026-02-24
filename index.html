@@ -454,6 +454,21 @@ tbody tr:hover td { background: #faf8f5; }
 .ac-name { font-size: 13px; color: var(--text); flex: 1; }
 .ac-mkt  { font-size: 11px; color: var(--text3); flex-shrink: 0; }
 
+/* ── Delete button ── */
+.del-btn {
+  background: none;
+  border: none;
+  color: var(--text3);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+  line-height: 1;
+}
+.del-btn:hover { color: var(--red); background: var(--red-bg); }
+.del-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
 /* ── State box ── */
 .state {
   padding: 44px 20px;
@@ -541,10 +556,10 @@ tbody tr:hover td { background: #faf8f5; }
         <table>
           <thead><tr>
             <th>日期</th><th>股票</th><th>買/賣</th><th>股數</th>
-            <th>成本/股</th><th>手續費</th><th>總額</th><th>備註</th>
+            <th>成本/股</th><th>手續費</th><th>總額</th><th>備註</th><th></th>
           </tr></thead>
           <tbody id="tradeBody">
-            <tr><td colspan="8"><div class="state"><span class="spin"></span>載入中</div></td></tr>
+            <tr><td colspan="9"><div class="state"><span class="spin"></span>載入中</div></td></tr>
           </tbody>
         </table>
       </div>
@@ -622,7 +637,7 @@ tbody tr:hover td { background: #faf8f5; }
           <div class="side-section">
             <div class="side-ttl">🔒 安全模式</div>
             <div class="side-note">
-              GitHub Token 存放於 Cloudflare Worker 環境變數，不會出現在瀏覽器中。<br><br>
+              GitHub Token 存放於 Cloudflare Worker 環境變數。<br><br>
               如需更換 Token，請至
               <a href="https://dash.cloudflare.com" target="_blank">Cloudflare Dashboard</a>
               → Workers → stock-diary → Settings → Variables 修改。
@@ -708,7 +723,7 @@ function render() {
     document.getElementById('holdBody').innerHTML =
       `<tr><td colspan="5"><div class="state">尚無持倉</div></td></tr>`;
     document.getElementById('tradeBody').innerHTML =
-      `<tr><td colspan="8"><div class="state">尚無紀錄</div></td></tr>`;
+      `<tr><td colspan="9"><div class="state">尚無紀錄</div></td></tr>`;
     return;
   }
 
@@ -793,6 +808,7 @@ function render() {
       <td class="dim">NT$ ${fmt(t.fee||0)}</td>
       <td>NT$ ${fmt(t.shares*t.price)}</td>
       <td class="dim">${t.note||'—'}</td>
+      <td><button class="del-btn" onclick="deleteTrade('${t.id}')" title="刪除此筆交易">✕</button></td>
     </tr>
   `).join('');
 
@@ -939,6 +955,32 @@ function acPick(i) {
 }
 
 function acHide() { document.getElementById('acList').classList.remove('open'); }
+
+/* ─────────────────────────
+   Delete
+───────────────────────── */
+async function deleteTrade(id) {
+  if (!confirm('確定要刪除這筆交易紀錄嗎？')) return;
+
+  // 找到按鈕並禁用
+  const btns = document.querySelectorAll('.del-btn');
+  btns.forEach(b => b.disabled = true);
+
+  try {
+    const res = await fetch(WORKER_URL + '/trade', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    });
+    const d = await res.json();
+    if (!res.ok || d.error) throw new Error(d.error || '未知錯誤');
+    // 重新載入
+    await load();
+  } catch (e) {
+    alert('刪除失敗：' + e.message);
+    btns.forEach(b => b.disabled = false);
+  }
+}
 
 /* ─────────────────────────
    Submit
