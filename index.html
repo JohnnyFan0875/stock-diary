@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stock Diary</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;1,400&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap');
+
+:root {
+  --bg:         #f7f5f2;
+  --bg2:        #efece8;
+  --surface:    #ffffff;
+  --border:     #e4e0da;
+  --border2:    #d0ccc5;
+  --text:       #2c2825;
+  --text2:      #6b6560;
+  --text3:      #a09890;
+  --accent:     #c96a2e;
+  --accent-bg:  #fdf1e9;
+  --green:      #2d7a4f;
+  --green-bg:   #edf7f1;
+  --red:        #b5382a;
+  --red-bg:     #fdf1f0;
+  --shadow:     0 1px 2px rgba(0,0,0,0.05), 0 4px 12px rgba(0,0,0,0.04);
+  --shadow-lg:  0 4px 16px rgba(0,0,0,0.08), 0 12px 40px rgba(0,0,0,0.06);
+  --r:          10px;
+  --r-sm:       6px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  line-height: 1.55;
+  min-height: 100vh;
+}
+
+/* ── App shell ── */
+.app { max-width: 980px; margin: 0 auto; padding: 0 20px 80px; }
+
+/* ── Header ── */
+.hdr {
+  padding: 28px 0 0;
+  margin-bottom: 24px;
+}
+
+.hdr-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.brand {
+  font-family: 'Lora', serif;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.2px;
+}
+.brand em { font-style: italic; color: var(--accent); }
+
+.hdr-meta { font-size: 12px; color: var(--text3); }
+
+/* ── Tabs ── */
+.tabs-bar {
+  display: flex;
+  gap: 2px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 3px;
+  width: fit-content;
+}
+
+.tab-btn {
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text2);
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: 'DM Sans', sans-serif;
+  white-space: nowrap;
+}
+
+.tab-btn:hover:not(.active) { color: var(--text); background: rgba(255,255,255,0.55); }
+
+.tab-btn.active {
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+/* ── Panels ── */
+.panel { display: none; animation: rise 0.2s ease; }
+.panel.active { display: block; }
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ══════════════════════════════
+   DASHBOARD
+══════════════════════════════ */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 18px 20px;
+  box-shadow: var(--shadow);
+}
+
+.stat-lbl {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 5px;
+}
+
+.stat-val {
+  font-family: 'Lora', serif;
+  font-size: 21px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.15;
+}
+
+.stat-val.pos { color: var(--green); }
+.stat-val.neg { color: var(--red); }
+.stat-sub { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+.charts-wrap {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+@media (max-width: 620px) { .charts-wrap { grid-template-columns: 1fr; } }
+
+.chart-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 18px 20px;
+  box-shadow: var(--shadow);
+}
+
+.chart-card.wide { grid-column: 1 / -1; }
+
+.chart-lbl {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 14px;
+}
+
+.ch { position: relative; height: 200px; }
+
+/* ══════════════════════════════
+   TABLES (Holdings & Trades)
+══════════════════════════════ */
+.tbl-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.tbl-head {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.tbl-scroll { overflow-x: auto; }
+
+table { width: 100%; border-collapse: collapse; }
+
+thead th {
+  padding: 10px 16px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+tbody td {
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: #faf8f5; }
+
+.badge {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 30px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.badge.buy  { background: var(--green-bg); color: var(--green); }
+.badge.sell { background: var(--red-bg);   color: var(--red); }
+
+.pos { color: var(--green); }
+.neg { color: var(--red); }
+.dim { color: var(--text3); }
+
+/* ══════════════════════════════
+   INPUT PANEL
+══════════════════════════════ */
+.input-layout {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 680px) { .input-layout { grid-template-columns: 1fr; } }
+
+.form-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 28px;
+  box-shadow: var(--shadow);
+}
+
+.form-title {
+  font-family: 'Lora', serif;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 22px;
+}
+
+.field { margin-bottom: 14px; }
+
+.field label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text2);
+  margin-bottom: 5px;
+}
+
+.field input[type="text"],
+.field input[type="number"],
+.field input[type="date"],
+.field input[type="password"],
+.field select {
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid var(--border2);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13.5px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.field input:focus,
+.field select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(201,106,46,0.12);
+}
+
+.field input::placeholder { color: var(--text3); }
+
+.f-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+/* Action toggle */
+.act-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+
+.act-opt input[type="radio"] { display: none; }
+
+.act-opt label {
+  display: block;
+  text-align: center;
+  padding: 8px;
+  border: 1px solid var(--border2);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text2);
+  transition: all 0.15s;
+  user-select: none;
+}
+
+.act-opt label:hover { background: var(--bg2); }
+
+.act-opt input:checked + label.lbl-buy  { background: var(--green-bg); border-color: var(--green); color: var(--green); font-weight: 600; }
+.act-opt input:checked + label.lbl-sell { background: var(--red-bg);   border-color: var(--red);   color: var(--red);   font-weight: 600; }
+
+/* Submit */
+.submit {
+  width: 100%;
+  padding: 10px;
+  margin-top: 6px;
+  background: var(--text);
+  color: #fff;
+  border: none;
+  border-radius: var(--r-sm);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.submit:hover:not(:disabled) { background: #1c1714; }
+.submit:disabled { background: var(--border2); color: var(--text3); cursor: not-allowed; }
+
+/* Status msg */
+.status {
+  margin-top: 10px;
+  padding: 9px 13px;
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  line-height: 1.6;
+  display: none;
+}
+.status.ok   { background: var(--green-bg); color: var(--green); display: block; }
+.status.err  { background: var(--red-bg);   color: var(--red);   display: block; }
+.status.busy { background: var(--accent-bg);color: var(--accent);display: block; }
+
+/* Sidebar */
+.side-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 20px;
+  box-shadow: var(--shadow);
+}
+
+.side-section { margin-bottom: 18px; }
+.side-section:last-child { margin-bottom: 0; }
+
+.side-ttl {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.side-note {
+  font-size: 12px;
+  color: var(--text3);
+  line-height: 1.65;
+  margin-bottom: 10px;
+}
+
+.side-note a { color: var(--accent); text-decoration: none; }
+.side-note a:hover { text-decoration: underline; }
+.side-note code { font-size: 11px; background: var(--bg2); padding: 1px 5px; border-radius: 3px; }
+
+.hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+
+.calc-result {
+  font-family: 'Lora', serif;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+  margin-top: 6px;
+}
+
+/* ── Autocomplete ── */
+.ac-wrap { position: relative; }
+
+.ac-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0; right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: var(--r-sm);
+  box-shadow: var(--shadow-lg);
+  z-index: 200;
+  max-height: 240px;
+  overflow-y: auto;
+  display: none;
+}
+
+.ac-list.open { display: block; }
+
+.ac-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 13px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.1s;
+}
+
+.ac-item:last-child { border-bottom: none; }
+.ac-item:hover, .ac-item.hi { background: var(--bg2); }
+
+.ac-code {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-bg);
+  padding: 2px 8px;
+  border-radius: 4px;
+  min-width: 48px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.ac-name { font-size: 13px; color: var(--text); flex: 1; }
+.ac-mkt  { font-size: 11px; color: var(--text3); flex-shrink: 0; }
+
+/* ── State box ── */
+.state {
+  padding: 44px 20px;
+  text-align: center;
+  color: var(--text3);
+  font-size: 13px;
+  line-height: 1.9;
+}
+.state .ico { font-size: 28px; display: block; margin-bottom: 8px; }
+
+/* Spinner */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin {
+  display: inline-block;
+  width: 13px; height: 13px;
+  border: 2px solid var(--border2);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.65s linear infinite;
+  vertical-align: middle;
+  margin-right: 5px;
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <div class="hdr">
+    <div class="hdr-row">
+      <div class="brand">Stock <em>Diary</em></div>
+      <div class="hdr-meta" id="metaTime">—</div>
+    </div>
+    <div class="tabs-bar">
+      <button class="tab-btn active" onclick="tab('dash')">總覽</button>
+      <button class="tab-btn" onclick="tab('hold')">持倉</button>
+      <button class="tab-btn" onclick="tab('log')">交易紀錄</button>
+      <button class="tab-btn" onclick="tab('add')">新增交易</button>
+    </div>
+  </div>
+
+  <!-- ▸ DASHBOARD -->
+  <div class="panel active" id="p-dash">
+    <div class="stats-row" id="statsRow">
+      <div class="stat-card"><div class="state"><span class="spin"></span>載入中</div></div>
+    </div>
+    <div class="charts-wrap" id="chartsWrap">
+      <div class="chart-card">
+        <div class="chart-lbl">持倉分佈</div>
+        <div class="ch"><canvas id="cPie"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-lbl">已實現損益</div>
+        <div class="ch"><canvas id="cBar"></canvas></div>
+      </div>
+      <div class="chart-card wide">
+        <div class="chart-lbl">累積投入成本走勢</div>
+        <div class="ch"><canvas id="cLine"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ▸ HOLDINGS -->
+  <div class="panel" id="p-hold">
+    <div class="tbl-card">
+      <div class="tbl-head">當前持倉</div>
+      <div class="tbl-scroll">
+        <table>
+          <thead><tr>
+            <th>股票</th><th>持股數</th><th>平均成本/股</th><th>總投入</th><th>已付手續費</th>
+          </tr></thead>
+          <tbody id="holdBody">
+            <tr><td colspan="5"><div class="state"><span class="spin"></span>載入中</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ▸ TRADES LOG -->
+  <div class="panel" id="p-log">
+    <div class="tbl-card">
+      <div class="tbl-head">全部交易紀錄</div>
+      <div class="tbl-scroll">
+        <table>
+          <thead><tr>
+            <th>日期</th><th>股票</th><th>買/賣</th><th>股數</th>
+            <th>成本/股</th><th>手續費</th><th>總額</th><th>備註</th>
+          </tr></thead>
+          <tbody id="tradeBody">
+            <tr><td colspan="8"><div class="state"><span class="spin"></span>載入中</div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ▸ ADD TRADE -->
+  <div class="panel" id="p-add">
+    <div class="input-layout">
+
+      <div class="form-card">
+        <div class="form-title">新增交易紀錄</div>
+
+        <div class="field">
+          <label>日期</label>
+          <input type="date" id="fDate">
+        </div>
+
+        <div class="field">
+          <label>買入 / 賣出</label>
+          <div class="act-toggle">
+            <div class="act-opt">
+              <input type="radio" name="act" id="oBuy" value="buy" checked>
+              <label for="oBuy" class="lbl-buy">▲ 買入</label>
+            </div>
+            <div class="act-opt">
+              <input type="radio" name="act" id="oSell" value="sell">
+              <label for="oSell" class="lbl-sell">▼ 賣出</label>
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>股票（代號 / 名稱）</label>
+          <div class="ac-wrap">
+            <input type="text" id="fStock" placeholder="搜尋：2330 或 台積電"
+              autocomplete="off"
+              oninput="acInput()" onkeydown="acKey(event)" onblur="acHide()">
+            <input type="hidden" id="fSym">
+            <input type="hidden" id="fName">
+            <div class="ac-list" id="acList"></div>
+          </div>
+        </div>
+
+        <div class="f-row">
+          <div class="field">
+            <label>股數</label>
+            <input type="number" id="fShares" placeholder="1000" min="1" oninput="calcUpdate()">
+          </div>
+          <div class="field">
+            <label>成本 / 股 (NT$)</label>
+            <input type="number" id="fPrice" placeholder="650" step="0.01" oninput="calcUpdate()">
+          </div>
+        </div>
+
+        <div class="f-row">
+          <div class="field">
+            <label>手續費 (NT$)</label>
+            <input type="number" id="fFee" value="0" min="0">
+          </div>
+          <div class="field">
+            <label>備註（選填）</label>
+            <input type="text" id="fNote" placeholder="留個小記">
+          </div>
+        </div>
+
+        <button class="submit" id="subBtn" onclick="submit()">確認新增</button>
+        <div class="status" id="statusBox"></div>
+      </div>
+
+      <!-- Sidebar -->
+      <div>
+        <div class="side-card">
+
+          <div class="side-section">
+            <div class="side-ttl">🔒 安全模式</div>
+            <div class="side-note">
+              GitHub Token 存放於 Cloudflare Worker 環境變數，不會出現在瀏覽器中。<br><br>
+              如需更換 Token，請至
+              <a href="https://dash.cloudflare.com" target="_blank">Cloudflare Dashboard</a>
+              → Workers → stock-diary → Settings → Variables 修改。
+            </div>
+          </div>
+
+          <div class="hr"></div>
+
+          <div class="side-section">
+            <div class="side-ttl">試算</div>
+            <div class="side-note">股數 × 成本/股</div>
+            <div class="calc-result" id="calcRes">—</div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<script>
+/* ─────────────────────────
+   Config
+───────────────────────── */
+// ↓ 部署 Worker 後換成你的 Worker 網址
+const WORKER_URL = 'https://stock-diary.chfan5234.workers.dev';
+
+/* ─────────────────────────
+   Tab
+───────────────────────── */
+const TABS = ['dash','hold','log','add'];
+function tab(id) {
+  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', TABS[i]===id));
+  document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id==='p-'+id));
+}
+
+/* ─────────────────────────
+   Init
+───────────────────────── */
+document.getElementById('fDate').value = new Date().toISOString().split('T')[0];
+const tok = localStorage.getItem('gh_token');
+if (tok) document.getElementById('fToken').value = tok;
+
+function calcUpdate() {
+  const s = parseFloat(document.getElementById('fShares').value)||0;
+  const p = parseFloat(document.getElementById('fPrice').value)||0;
+  document.getElementById('calcRes').textContent = s&&p ? 'NT$ '+fmt(s*p) : '—';
+}
+
+/* ─────────────────────────
+   Data
+───────────────────────── */
+let trades = [], charts = {};
+
+async function load() {
+  try {
+    const r = await fetch(WORKER_URL+'/data?t='+Date.now());
+    const d = await r.json();
+    if (d.error) throw new Error(d.error);
+    trades = d.trades||[];
+    document.getElementById('metaTime').textContent =
+      '更新於 '+new Date().toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'});
+    render();
+  } catch(e) {
+    document.getElementById('statsRow').innerHTML =
+      `<div class="stat-card"><div class="state"><span class="ico">⚠</span>無法載入資料，請確認 repo 設定</div></div>`;
+  }
+}
+
+load();
+setInterval(load, 60000);
+
+/* ─────────────────────────
+   Render
+───────────────────────── */
+function fmt(n) { return Math.round(n).toLocaleString(); }
+
+function render() {
+  if (!trades.length) {
+    document.getElementById('statsRow').innerHTML =
+      `<div class="stat-card"><div class="state"><span class="ico">📋</span>尚無交易紀錄，請點「新增交易」開始</div></div>`;
+    document.getElementById('holdBody').innerHTML =
+      `<tr><td colspan="5"><div class="state">尚無持倉</div></td></tr>`;
+    document.getElementById('tradeBody').innerHTML =
+      `<tr><td colspan="8"><div class="state">尚無紀錄</div></td></tr>`;
+    return;
+  }
+
+  // ── Holdings
+  const hold = {};
+  trades.forEach(t => {
+    if (!hold[t.symbol]) hold[t.symbol] = {name:t.name,symbol:t.symbol,shares:0,cost:0,fee:0};
+    const h = hold[t.symbol];
+    if (t.action==='buy') {
+      h.shares += t.shares; h.cost += t.shares*t.price; h.fee += (t.fee||0);
+    } else {
+      const avg = h.shares ? h.cost/h.shares : 0;
+      h.cost -= avg*t.shares; h.shares -= t.shares; h.fee += (t.fee||0);
+    }
+  });
+  const active = Object.values(hold).filter(h => h.shares > 0.001);
+
+  // ── Realized PnL
+  const pnlMap = {}, avgMap = {};
+  trades.forEach(t => {
+    if (!avgMap[t.symbol]) avgMap[t.symbol] = {s:0,c:0};
+    if (!pnlMap[t.symbol]) pnlMap[t.symbol] = {name:t.name,pnl:0};
+    if (t.action==='buy') {
+      avgMap[t.symbol].c += t.shares*t.price; avgMap[t.symbol].s += t.shares;
+    } else {
+      const a = avgMap[t.symbol].s ? avgMap[t.symbol].c/avgMap[t.symbol].s : 0;
+      pnlMap[t.symbol].pnl += (t.price-a)*t.shares-(t.fee||0);
+      avgMap[t.symbol].c -= a*t.shares; avgMap[t.symbol].s -= t.shares;
+    }
+  });
+
+  const totalInv = active.reduce((s,h)=>s+h.cost,0);
+  const totalFee = trades.reduce((s,t)=>s+(t.fee||0),0);
+  const totalPnl = Object.values(pnlMap).reduce((s,x)=>s+x.pnl,0);
+
+  // ── Stats
+  document.getElementById('statsRow').innerHTML = `
+    <div class="stat-card">
+      <div class="stat-lbl">持倉總成本</div>
+      <div class="stat-val">NT$ ${fmt(totalInv)}</div>
+      <div class="stat-sub">${active.length} 支股票</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-lbl">已實現損益</div>
+      <div class="stat-val ${totalPnl>=0?'pos':'neg'}">${totalPnl>=0?'+':''}NT$ ${fmt(totalPnl)}</div>
+      <div class="stat-sub">已出清部位</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-lbl">總手續費</div>
+      <div class="stat-val">NT$ ${fmt(totalFee)}</div>
+      <div class="stat-sub">買賣合計</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-lbl">交易次數</div>
+      <div class="stat-val">${trades.length}</div>
+      <div class="stat-sub">買 ${trades.filter(t=>t.action==='buy').length} / 賣 ${trades.filter(t=>t.action==='sell').length}</div>
+    </div>
+  `;
+
+  // ── Holdings table
+  document.getElementById('holdBody').innerHTML = active.length
+    ? active.map(h => {
+        const avg = h.shares ? h.cost/h.shares : 0;
+        return `<tr>
+          <td><strong>${h.name}</strong> <span class="dim">${h.symbol}</span></td>
+          <td>${h.shares.toLocaleString()}</td>
+          <td>NT$ ${avg.toFixed(2)}</td>
+          <td>NT$ ${fmt(h.cost)}</td>
+          <td class="dim">NT$ ${fmt(h.fee)}</td>
+        </tr>`;
+      }).join('')
+    : `<tr><td colspan="5"><div class="state">目前無持倉</div></td></tr>`;
+
+  // ── Trades table
+  document.getElementById('tradeBody').innerHTML = [...trades].reverse().map(t => `
+    <tr>
+      <td class="dim">${t.date}</td>
+      <td><strong>${t.name}</strong> <span class="dim">${t.symbol}</span></td>
+      <td><span class="badge ${t.action}">${t.action==='buy'?'買入':'賣出'}</span></td>
+      <td>${Number(t.shares).toLocaleString()}</td>
+      <td>NT$ ${Number(t.price).toLocaleString()}</td>
+      <td class="dim">NT$ ${fmt(t.fee||0)}</td>
+      <td>NT$ ${fmt(t.shares*t.price)}</td>
+      <td class="dim">${t.note||'—'}</td>
+    </tr>
+  `).join('');
+
+  // ── Charts
+  Object.values(charts).forEach(c=>c.destroy());
+  charts={};
+
+  const pal = ['#c96a2e','#2d7a4f','#5b8dd9','#b5382a','#7c5cbf','#c0974f','#2d8a8a'];
+  const base = {
+    responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{ labels:{ font:{family:'DM Sans',size:11}, color:'#a09890', boxWidth:11, padding:12 } } }
+  };
+  const axis = {
+    ticks:{ font:{family:'DM Sans',size:10}, color:'#a09890' },
+    grid:{ color:'rgba(0,0,0,0.04)' }
+  };
+
+  // Pie
+  if (active.length) {
+    charts.pie = new Chart(document.getElementById('cPie'), {
+      type:'doughnut',
+      data:{ labels:active.map(h=>h.name),
+        datasets:[{ data:active.map(h=>Math.round(h.cost)),
+          backgroundColor:pal, borderColor:'#fff', borderWidth:3, hoverOffset:5 }] },
+      options:{ ...base, cutout:'62%',
+        plugins:{ ...base.plugins,
+          legend:{ position:'bottom', labels:{font:{family:'DM Sans',size:11},color:'#a09890',boxWidth:10,padding:10} }
+        }
+      }
+    });
+  }
+
+  // Bar
+  const pnlArr = Object.values(pnlMap).filter(x=>Math.abs(x.pnl)>0.01);
+  if (pnlArr.length) {
+    charts.bar = new Chart(document.getElementById('cBar'), {
+      type:'bar',
+      data:{ labels:pnlArr.map(x=>x.name),
+        datasets:[{ data:pnlArr.map(x=>Math.round(x.pnl)),
+          backgroundColor:pnlArr.map(x=>x.pnl>=0?'rgba(45,122,79,0.65)':'rgba(181,56,42,0.65)'),
+          borderColor:pnlArr.map(x=>x.pnl>=0?'#2d7a4f':'#b5382a'),
+          borderWidth:1, borderRadius:4 }] },
+      options:{ ...base, plugins:{...base.plugins,legend:{display:false}},
+        scales:{ x:axis, y:{...axis, ticks:{...axis.ticks, callback:v=>'NT$'+v.toLocaleString()}} }
+      }
+    });
+  } else {
+    document.getElementById('cBar').parentElement.innerHTML =
+      '<div class="state" style="height:200px;display:flex;align-items:center;justify-content:center;color:var(--text3)">尚無已實現損益</div>';
+  }
+
+  // Line
+  const sorted = [...trades].filter(t=>t.action==='buy').sort((a,b)=>a.date.localeCompare(b.date));
+  if (sorted.length) {
+    let cum=0; const lbls=[],vals=[];
+    sorted.forEach(t=>{ cum+=t.shares*t.price+(t.fee||0); lbls.push(t.date); vals.push(Math.round(cum)); });
+    charts.line = new Chart(document.getElementById('cLine'),{
+      type:'line',
+      data:{labels:lbls, datasets:[{label:'累積投入', data:vals,
+        borderColor:'#c96a2e', backgroundColor:'rgba(201,106,46,0.07)',
+        fill:true, tension:0.4, pointRadius:4, pointBackgroundColor:'#c96a2e',
+        pointBorderColor:'#fff', pointBorderWidth:2, pointHoverRadius:7 }]},
+      options:{...base, plugins:{...base.plugins,legend:{display:false}},
+        scales:{ x:axis, y:{...axis, ticks:{...axis.ticks, callback:v=>'NT$'+v.toLocaleString()}} }
+      }
+    });
+  }
+}
+
+/* ─────────────────────────
+   Autocomplete
+───────────────────────── */
+const STOCKS = [
+  // 台灣
+  {s:'2330',n:'台積電',m:'TW'},{s:'2317',n:'鴻海',m:'TW'},{s:'2454',n:'聯發科',m:'TW'},
+  {s:'2382',n:'廣達',m:'TW'},{s:'2303',n:'聯電',m:'TW'},{s:'2412',n:'中華電信',m:'TW'},
+  {s:'1301',n:'台塑',m:'TW'},{s:'1303',n:'南亞',m:'TW'},{s:'2002',n:'中鋼',m:'TW'},
+  {s:'2881',n:'富邦金',m:'TW'},{s:'2882',n:'國泰金',m:'TW'},{s:'2886',n:'兆豐金',m:'TW'},
+  {s:'2891',n:'中信金',m:'TW'},{s:'2892',n:'第一金',m:'TW'},{s:'2884',n:'玉山金',m:'TW'},
+  {s:'2308',n:'台達電',m:'TW'},{s:'3711',n:'日月光投控',m:'TW'},{s:'2327',n:'國巨',m:'TW'},
+  {s:'2408',n:'南亞科',m:'TW'},{s:'3008',n:'大立光',m:'TW'},{s:'2395',n:'研華',m:'TW'},
+  {s:'2609',n:'陽明海運',m:'TW'},{s:'2615',n:'萬海航運',m:'TW'},{s:'2603',n:'長榮海運',m:'TW'},
+  {s:'6505',n:'台塑化',m:'TW'},{s:'5871',n:'中租控股',m:'TW'},{s:'2379',n:'瑞昱半導體',m:'TW'},
+  {s:'3034',n:'聯詠科技',m:'TW'},{s:'4938',n:'和碩',m:'TW'},{s:'2357',n:'華碩',m:'TW'},
+  {s:'2353',n:'宏碁',m:'TW'},{s:'2376',n:'技嘉科技',m:'TW'},{s:'3231',n:'緯創資通',m:'TW'},
+  {s:'2912',n:'統一超商',m:'TW'},{s:'2207',n:'和泰車',m:'TW'},{s:'1216',n:'統一企業',m:'TW'},
+  {s:'6669',n:'緯穎科技',m:'TW'},{s:'3037',n:'欣興電子',m:'TW'},{s:'2356',n:'英業達',m:'TW'},
+  // 台灣 ETF
+  {s:'0050',n:'元大台灣50',m:'TW ETF'},{s:'0056',n:'元大高股息',m:'TW ETF'},
+  {s:'006208',n:'富邦台50',m:'TW ETF'},{s:'00878',n:'國泰永續高股息',m:'TW ETF'},
+  {s:'00929',n:'復華台灣科技優息',m:'TW ETF'},{s:'00919',n:'群益台灣精選高息',m:'TW ETF'},
+  // 美股
+  {s:'AAPL',n:'Apple',m:'US'},{s:'MSFT',n:'Microsoft',m:'US'},{s:'GOOGL',n:'Alphabet',m:'US'},
+  {s:'AMZN',n:'Amazon',m:'US'},{s:'NVDA',n:'NVIDIA',m:'US'},{s:'META',n:'Meta',m:'US'},
+  {s:'TSLA',n:'Tesla',m:'US'},{s:'TSM',n:'TSMC ADR',m:'US'},{s:'AVGO',n:'Broadcom',m:'US'},
+  {s:'AMD',n:'AMD',m:'US'},{s:'INTC',n:'Intel',m:'US'},{s:'QCOM',n:'Qualcomm',m:'US'},
+  {s:'NFLX',n:'Netflix',m:'US'},{s:'DIS',n:'Disney',m:'US'},{s:'V',n:'Visa',m:'US'},
+  {s:'JPM',n:'JPMorgan',m:'US'},{s:'BAC',n:'Bank of America',m:'US'},{s:'WMT',n:'Walmart',m:'US'},
+  {s:'SPY',n:'S&P 500 ETF',m:'ETF'},{s:'QQQ',n:'Nasdaq ETF',m:'ETF'},
+  {s:'VTI',n:'Vanguard Total Market',m:'ETF'},{s:'VOO',n:'Vanguard S&P 500',m:'ETF'},
+];
+
+let acRes=[], acIdx=-1;
+
+function acInput() {
+  const q = document.getElementById('fStock').value.trim().toLowerCase();
+  document.getElementById('fSym').value='';
+  document.getElementById('fName').value='';
+  if (!q) { acHide(); return; }
+  acRes = STOCKS.filter(x => x.s.toLowerCase().includes(q)||x.n.toLowerCase().includes(q)).slice(0,8);
+  renderAc();
+}
+
+function renderAc() {
+  const el = document.getElementById('acList');
+  if (!acRes.length) { el.classList.remove('open'); return; }
+  el.innerHTML = acRes.map((x,i)=>`
+    <div class="ac-item" data-i="${i}" onmousedown="acPick(${i})">
+      <span class="ac-code">${x.s}</span>
+      <span class="ac-name">${x.n}</span>
+      <span class="ac-mkt">${x.m}</span>
+    </div>
+  `).join('');
+  acIdx=-1;
+  el.classList.add('open');
+}
+
+function acKey(e) {
+  const items = document.querySelectorAll('.ac-item');
+  if (e.key==='ArrowDown') { e.preventDefault(); acIdx=Math.min(acIdx+1,items.length-1); acHL(items); }
+  else if (e.key==='ArrowUp') { e.preventDefault(); acIdx=Math.max(acIdx-1,-1); acHL(items); }
+  else if (e.key==='Enter' && acIdx>=0) { e.preventDefault(); acPick(acIdx); }
+  else if (e.key==='Escape') acHide();
+}
+
+function acHL(items) { items.forEach((el,i)=>el.classList.toggle('hi',i===acIdx)); }
+
+function acPick(i) {
+  const x = acRes[i]; if(!x) return;
+  document.getElementById('fStock').value = `${x.s}　${x.n}`;
+  document.getElementById('fSym').value   = x.s;
+  document.getElementById('fName').value  = x.n;
+  setTimeout(acHide,80);
+}
+
+function acHide() { document.getElementById('acList').classList.remove('open'); }
+
+/* ─────────────────────────
+   Submit
+───────────────────────── */
+function setStatus(t,m) {
+  const el=document.getElementById('statusBox');
+  el.className='status '+t; el.textContent=m;
+}
+
+async function submit() {
+  const date   = document.getElementById('fDate').value;
+  const symbol = document.getElementById('fSym').value.trim();
+  const name   = document.getElementById('fName').value.trim();
+  const action = document.querySelector('input[name="act"]:checked').value;
+  const shares = parseFloat(document.getElementById('fShares').value);
+  const price  = parseFloat(document.getElementById('fPrice').value);
+  const fee    = parseFloat(document.getElementById('fFee').value)||0;
+  const note   = document.getElementById('fNote').value.trim();
+
+  if (!date||!symbol||!shares||!price) { setStatus('err','請填寫所有必填欄位，並從下拉選單選擇股票'); return; }
+
+  const btn=document.getElementById('subBtn');
+  btn.disabled=true;
+  setStatus('busy','送出中…');
+
+  try {
+    const res = await fetch(WORKER_URL+'/trade', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date, name, symbol, action, shares, price, fee, note }),
+    });
+    const d = await res.json();
+    if (!res.ok || d.error) throw new Error(d.error||'未知錯誤');
+
+    setStatus('ok',`✓ 已新增：${action==='buy'?'買入':'賣出'} ${name} (${symbol}) × ${shares} 股。正在重新整理…`);
+    ['fStock','fShares','fPrice','fNote'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('fSym').value='';
+    document.getElementById('fName').value='';
+    document.getElementById('fFee').value='0';
+    document.getElementById('oBuy').checked=true;
+    document.getElementById('calcRes').textContent='—';
+
+    setTimeout(load,2500);
+  } catch(e) {
+    setStatus('err','✗ '+e.message);
+  } finally {
+    btn.disabled=false;
+  }
+}
+</script>
+</body>
+</html>
